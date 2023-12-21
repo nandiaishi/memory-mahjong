@@ -64,12 +64,22 @@ const pickUniqueSets = (array1, array2, n) => {
   return uniqueSets;
 };
 
-const preloadImages = (imageUrls) => {
-  imageUrls.forEach((url) => {
-    const img = new Image();
-    img.src = url;
+const preloadImages = async (imageNames) => {
+  const imagePromises = imageNames.map(async (name) => {
+    const url = `/cards/${name}.svg`;
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return { [name]: blob };
   });
-}
+
+  try {
+    const imageBlobs = await Promise.all(imagePromises);
+    return Object.assign({}, ...imageBlobs);
+  } catch (error) {
+    console.error("Error preloading images:", error);
+    return {};
+  }
+};
 
 const statusValues = {
   NOT_STARTED: "NOT_STARTED",
@@ -84,8 +94,10 @@ function App() {
   const [finishModalOpen, setFinishModalOpen] = useState(false);
   const [timePassed, setTimePassed] = useState(0);
   const [status, setStatus] = useState(statusValues.NOT_STARTED);
-  const tableBackground = '/assets/table.webp';
-  const tableBorderBackground = '/assets/table-border.jpeg';
+  const [cards, setCards] = useState({});
+
+  const tableBackground = "/assets/table.webp";
+  const tableBorderBackground = "/assets/table-border.jpeg";
 
   const pickRandomCardsets = () => {
     let randomCards = pickUniqueSets(
@@ -93,6 +105,9 @@ function App() {
       cardSuits,
       numberOfCardsOnBoard / 2
     );
+    preloadImages(randomCards).then((cachedCards) => {
+      setCards(cachedCards);
+    });
     let doubledCards = [...randomCards, ...randomCards];
     let shuffledCards = shuffleArray(doubledCards);
     const cardsArray = shuffledCards.map((item, index) => {
@@ -102,9 +117,7 @@ function App() {
         value: item,
       };
     });
-    preloadImages(cardsArray.map(item => {
-      return `/cards/${item.value}.svg`
-    }))
+
     setSelectedCards(cardsArray);
   };
 
@@ -144,10 +157,10 @@ function App() {
         if (!item.solved) solved = false;
       });
       if (solved) {
-        setTimeout(() => {          
+        setTimeout(() => {
           setStatus(statusValues.FINISHED);
           setFinishModalOpen(true);
-          playSound('finish');
+          playSound("finish");
         }, 600);
       }
     }
@@ -183,10 +196,10 @@ function App() {
         });
         setSelectedCards(solvedArray);
         setSecondLastClickedCard({});
-        playSound('solve');
+        playSound("solve");
       } else {
         setSecondLastClickedCard(item);
-        playSound('click');
+        playSound("click");
       }
     }
   };
@@ -218,121 +231,135 @@ function App() {
   };
 
   return (
-    <Box sx={(theme) => ({
-      background: `url(${'https://i.pinimg.com/736x/2c/67/fb/2c67fb43d38ebe75ef01fd0a3367ba46.jpg'}) repeat`,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-    })}>
-
-        <Box
+    <Box
+      sx={(theme) => ({
+        background: `url(${"https://i.pinimg.com/736x/2c/67/fb/2c67fb43d38ebe75ef01fd0a3367ba46.jpg"}) repeat`,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+      })}
+    >
+      <Box
         sx={{
-          background:` url(${tableBorderBackground})`,
-          padding: '24px',
+          background: ` url(${tableBorderBackground})`,
+          padding: "24px",
           borderRadius: 20,
-          backgroundSize: 'cover',
-          position: 'relative'
+          backgroundSize: "cover",
+          position: "relative",
         }}
-          >
-          <Box
+      >
+        <Box
+          sx={{
+            textAlign: "center",
+            position: "absolute",
+            color: "white",
+            background: ` url(${tableBorderBackground})`,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            backgroundSize: "cover",
+            left: "50%",
+            top: -50,
+            px: 2,
+            transform: "translate(-50%)",
+          }}
+        >
+          <Typography
+            variant="button"
+            align="center"
             sx={{
-              textAlign: 'center',
-              position: 'absolute',
-              color: 'white',
-              background:` url(${tableBorderBackground})`,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              backgroundSize: 'cover',
-              left: '50%',
-              top: -50,
-              px:2,
-              transform: 'translate(-50%)'
+              fontSize: 42,
+              fontWeight: 900,
+              px: 2,
+              color: "#f2cb9a",
+              fontFamily: "Chingchong ",
             }}
           >
-            <Typography variant="button" align="center" sx={{
-                fontSize: 42,
-                fontWeight: 900,
-                px: 2,
-                color: '#f2cb9a',
-                fontFamily: 'Chingchong '
-            }}>
-              Memory Mahjong
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              textAlign: 'center',
-              position: 'absolute',
-              color: '#f2cb9a',
-              left: '50%',
-              transform: 'translate(-50%)',
-              top: 28,
-              display: 'flex',
-              alignItems: 'center',
-              gap: .5,
-            }}
-          >
-           
-            {timePassed <= numberOfCardsOnBoard * 3 ? (
-              <WatchLater fontSize="small"/>
-            ) : timePassed <= numberOfCardsOnBoard * 5 ? (
-              <WatchLaterTwoTone fontSize="small"/>
-            ) : (
-              <WatchLaterOutlined fontSize="small"/>
-            )}
-          <Typography variant="subtitle1" component="h6">
-            {timePassed} seconds</Typography>
-          </Box>
-          <Box
-            sx={{
-              boxSizing: 'border-box',
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              gap: 2,
-              p: 8,
-              borderRadius: 16,
-              maxWidth: 1200,
-              background:` url(${tableBackground}) repeat`
-            }}
-          >
-            {selectedCards.map((item, index) => {
-              return (
-                <Paper
-                  elevation={5}
-                  onClick={() => onCardClick(item, index)}
-                  className={`flip-container ${(item.solved || item.revealed)? 'flipped': ''}`}
-                  key={index}
-                  sx={{
-                    borderRadius: 2,
-                    width: 108,
-                    height: 150,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    "&:hover": {
-                      boxShadow: '0px 3px 8px -1px rgba(0,0,0,0.2), 0px 5px 12px 0px rgba(0,0,0,0.14), 0px 1px 20px 0px rgba(0,0,0,0.12)',
-                      transform:
-                        !item.revealed && !item.solved ? "scale(1.08)" : null,
-                    },
-                  }}
-                >
-                  <Box
-                    src={`./cards/${
-                      !item.revealed && !item.solved ? "RED_BACK" : item.value
-                    }.svg`}
-                    alt="card"
-                    component="img"
-                    style={{
-                      maxWidth: "100%",
-                      transform: 'rotateY(180deg)',
-                    }}
-                  />
-                </Paper>
-              );
-            })}
-          </Box>
+            Memory Mahjong
+          </Typography>
         </Box>
+        <Box
+          sx={{
+            textAlign: "center",
+            position: "absolute",
+            color: "#f2cb9a",
+            left: "50%",
+            transform: "translate(-50%)",
+            top: 28,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+          }}
+        >
+          {timePassed <= numberOfCardsOnBoard * 3 ? (
+            <WatchLater fontSize="small" />
+          ) : timePassed <= numberOfCardsOnBoard * 5 ? (
+            <WatchLaterTwoTone fontSize="small" />
+          ) : (
+            <WatchLaterOutlined fontSize="small" />
+          )}
+          <Typography variant="subtitle1" component="h6">
+            {timePassed} seconds
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            boxSizing: "border-box",
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 2,
+            p: 8,
+            borderRadius: 16,
+            maxWidth: 1200,
+            background: ` url(${tableBackground}) repeat`,
+          }}
+        >
+          {selectedCards.map((item, index) => {
+            return (
+              <Paper
+                elevation={5}
+                onClick={() => onCardClick(item, index)}
+                className={`flip-container ${
+                  item.solved || item.revealed ? "flipped" : ""
+                }`}
+                key={index}
+                sx={{
+                  borderRadius: 2,
+                  width: 108,
+                  height: 150,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  "&:hover": {
+                    boxShadow:
+                      "0px 3px 8px -1px rgba(0,0,0,0.2), 0px 5px 12px 0px rgba(0,0,0,0.14), 0px 1px 20px 0px rgba(0,0,0,0.12)",
+                    transform:
+                      !item.revealed && !item.solved ? "scale(1.08)" : null,
+                  },
+                }}
+              >
+                <Box
+                  // src={`./cards/${
+                  //   !item.revealed && !item.solved ? "RED_BACK" : item.value
+                  // }.svg`}
+                  src={
+                    !item.revealed && !item.solved
+                      ? "/cards/RED_BACK.svg"
+                      : URL.createObjectURL(cards[item.value]) ??
+                        `/cards/${item.value}.svg`
+                  }
+                  alt="card"
+                  component="img"
+                  style={{
+                    maxWidth: "100%",
+                    transform: "rotateY(180deg)",
+                  }}
+                />
+              </Paper>
+            );
+          })}
+        </Box>
+      </Box>
 
       <Dialog open={welcomeModalOpen}>
         <DialogContent>
@@ -392,8 +419,9 @@ function App() {
             <b>Congratulations</b>
           </Typography>
           <Typography variant="body1">
-            You've won the title of <b style={{ color: "#3098fc" }}>{getTitle()}</b> for
-            solving it in {timePassed} seconds
+            You've won the title of{" "}
+            <b style={{ color: "#3098fc" }}>{getTitle()}</b> for solving it in{" "}
+            {timePassed} seconds
           </Typography>
           <Button
             variant="contained"
