@@ -64,6 +64,13 @@ const pickUniqueSets = (array1, array2, n) => {
   return uniqueSets;
 };
 
+const preloadImages = (imageUrls) => {
+  imageUrls.forEach((url) => {
+    const img = new Image();
+    img.src = url;
+  });
+}
+
 const statusValues = {
   NOT_STARTED: "NOT_STARTED",
   STARTED: "STARTED",
@@ -95,6 +102,9 @@ function App() {
         value: item,
       };
     });
+    preloadImages(cardsArray.map(item => {
+      return `/cards/${item.value}.svg`
+    }))
     setSelectedCards(cardsArray);
   };
 
